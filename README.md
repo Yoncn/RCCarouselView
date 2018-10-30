@@ -1,5 +1,5 @@
 # RCCarouselView
-Translate  [TGLParallaxCarousel](https://github.com/taglia3/TGLParallaxCarousel) into Objective-C
+Translate  [TGLParallaxCarousel](https://github.com/taglia3/TGLParallaxCarousel) into Objective-C, and Support for circular scrolling.
 
 
 A lightweight 3D Linear Carousel with parallax effect
