@@ -36,11 +36,6 @@
     
 }
 
-
-
-
-
-
 - (void)carouselView:(nonnull RCCarouselView *)carouselView didSelectItemAtIndex:(int)index {
     NSLog(@"%d", index);
 }
