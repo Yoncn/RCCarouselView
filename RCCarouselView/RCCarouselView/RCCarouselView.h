@@ -22,7 +22,6 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, weak) id<RCCarouselViewDelegate> delegate;
 @property (nonatomic, assign) CGFloat defaultDistace;
 
-- (void)reloadData;
 @end
 
 NS_ASSUME_NONNULL_END

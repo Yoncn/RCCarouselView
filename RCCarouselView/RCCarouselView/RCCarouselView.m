@@ -15,7 +15,9 @@
 
 @property (nonatomic, strong) NSMutableArray <RCCarouselViewItem *>*itemArray;
 @property (nonatomic, assign) int currentIndex;
-@property (nonatomic, assign) BOOL isDecelerating;
+//@property (nonatomic, assign) BOOL isDecelerating;
+@property (nonatomic, strong) RCCarouselViewItem *leftMostItem;
+@property (nonatomic, strong) RCCarouselViewItem *rightMostItem;
 
 @property (nonatomic, assign) CGPoint startGesturePoint;
 @property (nonatomic, assign) CGPoint endGesturePoint;
@@ -23,6 +25,10 @@
 @property (nonatomic, assign) CGFloat parallaxFactor;
 @property (nonatomic, assign) CGFloat bounceMargin;
 @property (nonatomic, assign) BOOL loopFinished;
+//@property (nonatomic, assign) CGFloat leftRightPadding;
+
+@property (nonatomic, assign) CGFloat endX;
+@property (nonatomic, assign) CGFloat beginX;
 
 @end
 
@@ -40,12 +46,16 @@
 - (void)layoutSubviews {
     [super layoutSubviews];
     self.mainView.frame = self.bounds;
-    [self reloadData];
+    if (_itemArray.count == 0) {
+        [self configData];
+    } else {
+        [self refreshData];
+    }
 }
 
 #pragma mark - data
 
-- (void)reloadData {
+- (void)configData {
     if (self.delegate && [self.delegate respondsToSelector:@selector(numberOfItemsInCarouselView)] && [self.delegate respondsToSelector:@selector(carouselView:itemForRowAtIndex:)]) {
         NSInteger count = self.delegate.numberOfItemsInCarouselView;
         self.itemArray = [NSMutableArray arrayWithCapacity:count];
@@ -54,9 +64,18 @@
             [self __addItem:item];
         }
         [self __refreshUIWithAnimate:YES];
+        self.currentIndex = (int)count/2;
     } else {
         NSLog(@"__configData delegate not exist");
     }
+}
+
+- (void)refreshData {
+    
+}
+
+- (void)resetData {
+    
 }
 
 #pragma mark - UI
@@ -81,7 +100,8 @@
         [CATransaction begin];
         [CATransaction setDisableActions:YES];
         
-        CGFloat factor = ((index + 1)/2) * pow(-1.0, (index + 1)%2 + 1);
+//        CGFloat factor = ((index + 1)/2) * pow(-1.0, (index + 1)%2 + 1);
+        CGFloat factor = index;
         CGFloat xDistance = _defaultDistace * factor;
         CGFloat zDistance = round(-fabs(xDistance));
         
@@ -109,6 +129,16 @@
         
         item.x = xDistance;
         item.z = zDistance;
+//        if (index == _itemArray.count - 2) {
+//            _leftMostItem = item;
+//        } else if (index == _itemArray.count - 1) {
+//            _rightMostItem = item;
+//        }
+        if (index == 0) {
+            _leftMostItem = item;
+        } else if (index == _itemArray.count - 1) {
+            _rightMostItem = item;
+        }
         
         [CATransaction commit];
     }
@@ -151,9 +181,11 @@
         item.x = item.x - offset;
         item.z = -fabs(item.x);
         CGFloat factor = [self getFactorForX:item.z];
-        if (index == 0) {
-            NSLog(@"系数：%f", factor);
-        }
+        
+        
+//        if ([item isEqual:_leftMostItem]) {
+//            NSLog(@"系数：%f, 偏移：%f", factor, offset);
+//        }
         
         dispatch_async(dispatch_get_main_queue(), ^{
             [UIView animateWithDuration:0.33 animations:^{
@@ -188,25 +220,244 @@
 }
 
 - (void)startDecelerating {
-    _isDecelerating = YES;
     
-    CGFloat acceleration = -_currentGestureVelocity * 25;
-    CGFloat distance = acceleration == 0 ? 0 : (-pow(_currentGestureVelocity, 2.0) / (2.0 * acceleration));
-    CGFloat offsetItems = _itemArray.firstObject.x;
-    CGFloat endOffsetItems = distance + offsetItems;
-    self.currentIndex = -(int)(round(endOffsetItems / _defaultDistace));
+    NSLog(@"beginx:%lf, endx:%lf", _beginX, _endX);
     
-    _isDecelerating = NO;
+    CGFloat movedX = _endX - _beginX;
+    int oldIndex = self.currentIndex;
+    BOOL shouldChange = NO;
+    BOOL leftToRight = NO;
+    if (fabs(movedX) < _defaultDistace) {//滑动距离小于一个距离就不移动到下个index
+        oldIndex = self.currentIndex;
+    } else {
+        if (movedX < 0) {//往左滑了
+            if (oldIndex == _itemArray.count-1) {
+                oldIndex = 0;
+            } else {
+                oldIndex ++;
+            }
+            shouldChange = YES;
+            leftToRight = NO;
+            
+        } else if (movedX > 0) {//往右滑了
+            if (oldIndex == 0) {
+                oldIndex = (int)_itemArray.count - 1;
+            } else {
+                oldIndex --;
+            }
+            shouldChange = YES;
+            leftToRight = YES;
+            
+        } else {//回到原处
+            oldIndex = self.currentIndex;
+        }
+    }
+    
+    self.currentIndex = oldIndex;
+    
+    if (shouldChange) {
+        if (leftToRight) {
+            [self refreshItemIfLeftToRightScroll];
+        } else {
+            [self refreshItemIfRightToLeftScroll];
+        }
+    }
+    
+//    [self refreshMostItemWithOldIndex:oldIndex];
+    
+    return;
+//    _isDecelerating = YES;
+    
+//    CGFloat acceleration = -_currentGestureVelocity * 25;
+//    CGFloat distance = acceleration == 0 ? 0 : (-pow(_currentGestureVelocity, 2.0) / (2.0 * acceleration));
+//    NSLog(@"distance:%lf", distance);
+//    CGFloat offsetItems = _itemArray.firstObject.x;
+//    CGFloat endOffsetItems = distance + offsetItems;
+//    int oldIndex = self.currentIndex;
+//    self.currentIndex = -(int)(round(endOffsetItems / _defaultDistace));
+//    _isDecelerating = NO;
+    
+//    for (RCCarouselViewItem *item in _itemArray) {
+//        if (distance > 0) {//从左往右滑
+//            if ([item isEqual:_rightMostItem]) {
+//
+//                item.x = self.leftMostItem.x - _defaultDistace;
+//                item.z = -fabs(item.x);
+//                dispatch_async(dispatch_get_main_queue(), ^{
+//                    [UIView animateWithDuration:0.33 animations:^{
+//                        CATransform3D transform = CATransform3DIdentity;
+//                        transform.m34 = -1.0/500;
+//                        item.layer.transform = CATransform3DTranslate(transform, item.x, 0.0, item.z);
+//                    } completion:^(BOOL finished) {
+//
+//                        self.leftMostItem = item;
+//
+//                        NSInteger newRightIndex = [self.itemArray indexOfObject:item] - 1;
+//                        newRightIndex = newRightIndex < 0 ? self.itemArray.count - 1 : newRightIndex;
+//                        //                        newRightIndex = newRightIndex > self.itemArray.count - 1 ? 0 : newRightIndex;
+//                        self.rightMostItem = self.itemArray[newRightIndex];
+//                    }];
+//                });
+//            }
+//        } else {//从右往左滑
+//            if ([item isEqual:_leftMostItem]) {
+//                item.x = self.rightMostItem.x + _defaultDistace;
+//                item.z = -fabs(item.x);
+//                dispatch_async(dispatch_get_main_queue(), ^{
+//                    [UIView animateWithDuration:0.33 animations:^{
+//                        CATransform3D transform = CATransform3DIdentity;
+//                        transform.m34 = -1.0/500;
+//                        item.layer.transform = CATransform3DTranslate(transform, item.x, 0.0, item.z);
+//                    } completion:^(BOOL finished) {
+//
+//                        self.rightMostItem = item;
+//
+//                        NSInteger newLeftIndex = [self.itemArray indexOfObject:item] + 1;
+//                        newLeftIndex = newLeftIndex > self.itemArray.count - 1 ? 0 : newLeftIndex;
+//                        //                        newLeftIndex = newLeftIndex < 0 ? self.itemArray.count - 1 : newLeftIndex;
+//                        self.leftMostItem = self.itemArray[newLeftIndex];
+//                    }];
+//                });
+//            }
+//        }
+//    }
+    
+//    dispatch_async(dispatch_get_main_queue(), ^{
+//        [self refreshMostItemWithOldIndex:oldIndex];
+//    });
+    
 }
 
+- (void)refreshItemIfLeftToRightScroll {
+    for (RCCarouselViewItem *item in _itemArray) {
+        if ([item isEqual:_rightMostItem]) {
+            item.x = self.leftMostItem.x - _defaultDistace;
+            item.z = -fabs(item.x);
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [UIView animateWithDuration:0.33 animations:^{
+                    CATransform3D transform = CATransform3DIdentity;
+                    transform.m34 = -1.0/500;
+                    item.layer.transform = CATransform3DTranslate(transform, item.x, 0.0, item.z);
+                } completion:^(BOOL finished) {
+                    self.leftMostItem = item;
+                    
+                    NSInteger newRightIndex = [self.itemArray indexOfObject:item] - 1;
+                    newRightIndex = newRightIndex < 0 ? self.itemArray.count - 1 : newRightIndex;
+                    self.rightMostItem = self.itemArray[newRightIndex];
+                }];
+            });
+        }
+    }
+}
+
+- (void)refreshItemIfRightToLeftScroll {
+    for (RCCarouselViewItem *item in _itemArray) {
+        if ([item isEqual:_leftMostItem]) {
+            item.x = self.rightMostItem.x + _defaultDistace;
+            item.z = -fabs(item.x);
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [UIView animateWithDuration:0.33 animations:^{
+                    CATransform3D transform = CATransform3DIdentity;
+                    transform.m34 = -1.0/500;
+                    item.layer.transform = CATransform3DTranslate(transform, item.x, 0.0, item.z);
+                } completion:^(BOOL finished) {
+                    self.rightMostItem = item;
+                    
+                    NSInteger newLeftIndex = [self.itemArray indexOfObject:item] + 1;
+                    newLeftIndex = newLeftIndex > self.itemArray.count - 1 ? 0 : newLeftIndex;
+                    self.leftMostItem = self.itemArray[newLeftIndex];
+                }];
+            });
+        }
+    }
+}
+
+//- (void)refreshMostItemWithOldIndex:(int)oldIndex {
+//    NSLog(@"--%d---%d", oldIndex, self.currentIndex);
+//    if (oldIndex == self.currentIndex || self.currentIndex < 0) {
+//        return;
+//    }
+//    BOOL leftToRightScroll = NO;
+//        if (oldIndex > self.currentIndex || (oldIndex == 0 && self.currentIndex == _itemArray.count - 1)) {
+//            leftToRightScroll = YES;
+//        }
+//        if (oldIndex < self.currentIndex || (oldIndex == _itemArray.count - 1 && self.currentIndex == 0)) {
+//            leftToRightScroll = NO;
+//        }
+////    RCCarouselViewItem *currenItem = _itemArray[self.currentIndex];
+////    int leftCount = 0;
+////    int rightCount = 0;
+////    for (RCCarouselViewItem *item in _itemArray) {
+////        if (item.x < currenItem.x) {
+////            leftCount ++;
+////        } else if (item.x > currenItem.x) {
+////            rightCount ++;
+////        }
+////    }
+////    leftToRightScroll = rightCount > leftCount;
+//    for (RCCarouselViewItem *item in _itemArray) {
+//        if (leftToRightScroll) {//从左往右滑
+//            if ([item isEqual:_rightMostItem]) {
+//
+//                item.x = self.leftMostItem.x - _defaultDistace;
+//                item.z = -fabs(item.x);
+//                dispatch_async(dispatch_get_main_queue(), ^{
+//                    [UIView animateWithDuration:0.33 animations:^{
+//                        CATransform3D transform = CATransform3DIdentity;
+//                        transform.m34 = -1.0/500;
+//                        item.layer.transform = CATransform3DTranslate(transform, item.x, 0.0, item.z);
+//                    } completion:^(BOOL finished) {
+//
+//                        self.leftMostItem = item;
+//
+//                        NSInteger newRightIndex = [self.itemArray indexOfObject:item] - 1;
+//                        newRightIndex = newRightIndex < 0 ? self.itemArray.count - 1 : newRightIndex;
+//                        //                        newRightIndex = newRightIndex > self.itemArray.count - 1 ? 0 : newRightIndex;
+//                        self.rightMostItem = self.itemArray[newRightIndex];
+//                    }];
+//                });
+//            }
+//        } else {//从右往左滑
+//            if ([item isEqual:_leftMostItem]) {
+//                item.x = self.rightMostItem.x + _defaultDistace;
+//                item.z = -fabs(item.x);
+//                dispatch_async(dispatch_get_main_queue(), ^{
+//                    [UIView animateWithDuration:0.33 animations:^{
+//                        CATransform3D transform = CATransform3DIdentity;
+//                        transform.m34 = -1.0/500;
+//                        item.layer.transform = CATransform3DTranslate(transform, item.x, 0.0, item.z);
+//                    } completion:^(BOOL finished) {
+//
+//                        self.rightMostItem = item;
+//
+//                        NSInteger newLeftIndex = [self.itemArray indexOfObject:item] + 1;
+//                        newLeftIndex = newLeftIndex > self.itemArray.count - 1 ? 0 : newLeftIndex;
+//                        //                        newLeftIndex = newLeftIndex < 0 ? self.itemArray.count - 1 : newLeftIndex;
+//                        self.leftMostItem = self.itemArray[newLeftIndex];
+//                    }];
+//                });
+//            }
+//        }
+//    }
+//}
+
 - (void)setCurrentIndex:(int)currentIndex {
+    _currentIndex = currentIndex;
+    NSLog(@"real index:%d", currentIndex);
     [self __moveToIndex:currentIndex];
 }
 
 - (void)__moveToIndex:(int)index {
-    CGFloat offsetItems = _itemArray.firstObject.x;
-    CGFloat offsetToAdd = _defaultDistace * -index - offsetItems;
-    [self moveCarousel:-offsetToAdd];
+    int offsetIndex = 0;
+    if (index >= _leftMostItem.orderNumber) {
+        offsetIndex = index - _leftMostItem.orderNumber;
+    } else {
+        offsetIndex = index + (int)_itemArray.count - _leftMostItem.orderNumber;
+    }
+    
+    CGFloat offsetToAdd = _leftMostItem.x + _defaultDistace * offsetIndex;
+    NSLog(@"real offset:%lf--offsetItems:%lf", offsetToAdd, _leftMostItem.x);
+    [self moveCarousel:offsetToAdd];
 }
 
 #pragma mark - gesture
@@ -220,13 +471,18 @@
         case UIGestureRecognizerStateBegan: {
             _currentGestureVelocity = 0;
             _startGesturePoint = [pan locationInView:targetView];
+            _endX = 0;
+            _beginX = _startGesturePoint.x;
         }
             break;
         case UIGestureRecognizerStateChanged: {
             _currentGestureVelocity = [pan velocityInView:targetView].x;
             _endGesturePoint = [pan locationInView:targetView];
             
+            _endX = _endGesturePoint.x;
+            
             CGFloat xOffset = (_startGesturePoint.x - _endGesturePoint.x) * (1 / _parallaxFactor);
+            NSLog(@"_currentGestureVelocity:%lf, xOffset:%lf, _endGesturePoint:%lf=%lf",_currentGestureVelocity, xOffset, _endGesturePoint.x, _endGesturePoint.y);
             [self moveCarousel:xOffset];
             _startGesturePoint = _endGesturePoint;
         }
