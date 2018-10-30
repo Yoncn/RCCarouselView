@@ -286,7 +286,13 @@
 
 #pragma mark - gesture
 - (void)tapGestureAction:(UITapGestureRecognizer *)tap {
-    
+    CGPoint targetPoint = [tap locationInView:tap.view];
+    CALayer *currentItemLayer = self.itemArray[_currentIndex].layer;
+    if ((targetPoint.x > currentItemLayer.frame.origin.x && targetPoint.x < (currentItemLayer.frame.origin.x + currentItemLayer.frame.size.width)) && (targetPoint.y > currentItemLayer.frame.origin.y && targetPoint.y < currentItemLayer.frame.origin.y + currentItemLayer.frame.size.height)) {
+        if (self.delegate && [self.delegate respondsToSelector:@selector(carouselView:didSelectItemAtIndex:)]) {
+            [self.delegate carouselView:self didSelectItemAtIndex:_currentIndex];
+        }
+    }
 }
 
 - (void)panGestureAction:(UIPanGestureRecognizer *)pan {
