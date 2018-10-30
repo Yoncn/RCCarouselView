@@ -6,7 +6,8 @@ A lightweight 3D Linear Carousel with parallax effect
 
 ![RCCarouselView.gif](https://github.com/Yoncn/RCCarouselView/blob/master/RCCarouselViewDemo.gif)
 
-###Usage
+
+### Usage
 1.Place one UIView object in your VC and set it as subclass of `RCCarouselView`
 
 2.set the delegate to your VC, then implement the corresponding proxy method.
